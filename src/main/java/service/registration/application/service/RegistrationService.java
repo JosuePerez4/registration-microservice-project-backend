@@ -52,6 +52,13 @@ public class RegistrationService {
                 .toList();
     }
 
+    public List<RegistrationResponse> getByUserId(UUID userId) {
+        return registrationRepository.findByUserId(userId)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
     private RegistrationResponse toResponse(Registration registration) {
         return new RegistrationResponse(
                 registration.getId(),

@@ -10,4 +10,6 @@ import service.registration.domain.model.Registration;
 public interface RegistrationRepository extends JpaRepository<Registration, UUID> {
 
     List<Registration> findByConferenceId(UUID conferenceId);
+
+    List<Registration> findByUserId(UUID userId);
 }
