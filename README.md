@@ -139,6 +139,9 @@ the `uk_registration_conference_user` unique constraint.
 - **Startup fails with missing placeholder `SERVER_PORT`, `DB_URL`,
   `jwt.public.key`, or `auth.service.base-url`:** add the value to `.env` or the
   deployment environment.
+- **Tests fail with `'url' must start with "jdbc"`:** the Spring context smoke
+  test creates the datasource, so `DB_URL` must be set to a valid JDBC URL even
+  when running `./mvnw test`.
 - **Startup fails while loading the JWT key:** verify the key is an RSA public
   key in PEM format and that multiline values are escaped with `\n` when stored
   on one line.
@@ -155,6 +158,7 @@ Run the current test suite with:
 ./mvnw test
 ```
 
-The repository currently contains a Spring context smoke test. Endpoint and
-repository behavior should be covered by additional tests when those contracts
-change.
+The repository currently contains a Spring context smoke test. Because it loads
+the application context, the same required configuration used for local startup
+must be available to the test process. Endpoint and repository behavior should
+be covered by additional tests when those contracts change.
