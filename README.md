@@ -15,6 +15,23 @@ roles.
 - PostgreSQL
 - Springdoc OpenAPI UI
 
+## Architecture
+
+The code follows a small layered structure:
+
+- `presentation/controller`: HTTP endpoints and JWT principal extraction.
+- `presentation/exception`: API-level validation error formatting.
+- `application/service`: registration use cases and DTO mapping.
+- `domain/model` and `domain/repository`: JPA entity and Spring Data access.
+- `infrastructure/security`: stateless resource-server configuration and role
+  mapping.
+- `infrastructure/client`: `RestClient` integration point for the auth service.
+
+Create requests flow from `RegistrationController` to `RegistrationService`,
+which persists a `Registration` through `RegistrationRepository`. The controller
+does not trust a user id from the request body; it derives the `userId` from the
+validated JWT before calling the service.
+
 ## Local setup
 
 ### Prerequisites
@@ -104,6 +121,51 @@ Validation and business responses:
 - `409 Conflict` when the same user is already registered for the same
   conference.
 
+Validation errors handled by `GlobalExceptionHandler` use this shape:
+
+```json
+{
+  "timestamp": "2026-04-28T22:24:24.319Z",
+  "status": 400,
+  "error": "Bad Request",
+  "message": "conferenceId: conferenceId es obligatorio"
+}
+```
+
+### Read registration
+
+```http
+GET /registrations/register/22222222-2222-2222-2222-222222222222
+Authorization: Bearer <jwt>
+```
+
+Response `200 OK` uses the same JSON shape as create. If the id is not present
+in the database, `RegistrationService` raises `404 Not Found`.
+
+### List registrations for a conference
+
+```http
+GET /registrations/register-list?conferenceId=11111111-1111-1111-1111-111111111111
+Authorization: Bearer <jwt>
+```
+
+Response `200 OK`:
+
+```json
+[
+  {
+    "id": "22222222-2222-2222-2222-222222222222",
+    "conferenceId": "11111111-1111-1111-1111-111111111111",
+    "userId": "33333333-3333-3333-3333-333333333333",
+    "active": false,
+    "createdAt": "2026-04-28T22:24:24.319Z"
+  }
+]
+```
+
+The list endpoint filters only by `conferenceId`; it does not filter by the
+authenticated user. Access is controlled by role in `SecurityConfig`.
+
 ## Security contract
 
 `SecurityConfig` validates JWTs using the configured RSA public key and maps a
@@ -120,6 +182,25 @@ where the first item is used. The legacy spelling `ASISTANT` is normalized to
 
 The create endpoint requires the authenticated user's id to be a valid UUID in
 the `userId` claim or in the JWT subject.
+
+Requests without a valid bearer token fail authentication before reaching the
+controller. Tokens with a missing, unsupported, or malformed `role` claim do not
+receive a Spring role authority and therefore cannot access the protected
+registration endpoints.
+
+### Auth service client
+
+`AuthClient` is a reusable integration hook for the authentication service. It
+builds a Spring `RestClient` with `auth.service.base-url` and calls:
+
+```http
+GET /api/v1/auth/me
+Authorization: Bearer <jwt>
+```
+
+The expected response fields currently modeled by `AuthMeResponse` are `id` and
+`role`; unknown fields are ignored. No current registration endpoint calls this
+client, so JWT validation and claim extraction are the active authorization path.
 
 ## Data model
 
