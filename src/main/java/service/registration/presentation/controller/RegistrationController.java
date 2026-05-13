@@ -1,9 +1,11 @@
 package service.registration.presentation.controller;
 
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,8 +16,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
-import jakarta.validation.Valid;
+import service.registration.application.dto.ConferencePaymentStatusResponse;
 import service.registration.application.dto.CreateRegistrationRequest;
 import service.registration.application.dto.RegistrationResponse;
 import service.registration.application.service.RegistrationService;
@@ -36,8 +39,24 @@ public class RegistrationController {
             @Valid @RequestBody CreateRegistrationRequest request,
             @AuthenticationPrincipal Jwt jwt
     ) {
-        UUID userId = extractUserId(jwt);
-        return registrationService.create(request, userId);
+        return registrationService.create(request, resolveUserId(jwt));
+    }
+
+    @PostMapping(value = "/pay", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public RegistrationResponse submitSimulatedPayment(
+            @RequestParam UUID conferenceId,
+            @RequestParam("file") MultipartFile file,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        return registrationService.submitSimulatedPayment(conferenceId, resolveUserId(jwt), file);
+    }
+
+    @GetMapping("/payment-status")
+    public ConferencePaymentStatusResponse getPaymentStatus(
+            @RequestParam UUID conferenceId,
+            @AuthenticationPrincipal Jwt jwt
+    ) {
+        return registrationService.getPaymentStatusForConference(conferenceId, resolveUserId(jwt));
     }
 
     @GetMapping("/register/{id}")
@@ -52,10 +71,10 @@ public class RegistrationController {
 
     @GetMapping("/my")
     public List<RegistrationResponse> getMyRegistrations(@AuthenticationPrincipal Jwt jwt) {
-        return registrationService.getByUserId(extractUserId(jwt));
+        return registrationService.getByUserId(resolveUserId(jwt));
     }
 
-    private UUID extractUserId(Jwt jwt) {
+    private static UUID resolveUserId(Jwt jwt) {
         String userIdClaim = jwt.getClaimAsString("userId");
         if (userIdClaim == null || userIdClaim.isBlank()) {
             userIdClaim = jwt.getSubject();

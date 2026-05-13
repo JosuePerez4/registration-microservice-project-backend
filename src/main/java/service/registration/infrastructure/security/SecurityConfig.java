@@ -36,9 +36,10 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.POST, "/registrations/register").hasAnyRole("AUTHOR", "ASSISTANT")
+                        .requestMatchers(HttpMethod.POST, "/registrations/register").hasAnyRole("AUTHOR", "ASISTANT")
+                        .requestMatchers(HttpMethod.POST, "/registrations/pay").hasRole("ASISTANT")
                         .requestMatchers(HttpMethod.GET, "/registrations/register/**", "/registrations/register-list")
-                        .hasAnyRole("ADMIN", "CHAIR", "AUTHOR", "ASSISTANT")
+                        .hasAnyRole("ADMIN", "CHAIR", "AUTHOR", "ASISTANT")
                         .requestMatchers("/registrations/**").authenticated()
                         .anyRequest().permitAll()
                 )
@@ -78,28 +79,13 @@ public class SecurityConfig {
             return Collections.emptyList();
         }
 
-        String role = normalizeRole(roleClaim);
-        if (role == null) {
+        String role = extractRole(roleClaim);
+        if (role == null || role.isBlank()) {
             return Collections.emptyList();
         }
 
-        return Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role));
-    }
-
-    private String normalizeRole(Object roleClaim) {
-        String role = extractRole(roleClaim);
-        if (role == null || role.isBlank()) {
-            return null;
-        }
-
         String normalized = role.trim().toUpperCase(Locale.ROOT);
-        if ("ASISTANT".equals(normalized)) {
-            return "ASSISTANT";
-        }
-        if ("ADMIN".equals(normalized) || "AUTHOR".equals(normalized) || "CHAIR".equals(normalized) || "ASSISTANT".equals(normalized)) {
-            return normalized;
-        }
-        return null;
+        return Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + normalized));
     }
 
     private String extractRole(Object roleClaim) {
