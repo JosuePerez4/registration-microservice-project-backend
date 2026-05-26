@@ -1,6 +1,7 @@
 package service.registration.application.service;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Locale;
@@ -16,7 +17,9 @@ import org.springframework.web.server.ResponseStatusException;
 
 import service.registration.application.dto.ConferencePaymentStatusResponse;
 import service.registration.application.dto.CreateRegistrationRequest;
+import service.registration.application.dto.PendingPaymentResponse;
 import service.registration.application.dto.RegistrationResponse;
+import service.registration.application.dto.PaymentProofUrlResponse;
 import service.registration.application.port.PaymentProofObjectStorage;
 import service.registration.domain.model.PaymentStatus;
 import service.registration.domain.model.Registration;
@@ -100,8 +103,8 @@ public class RegistrationService {
             registration.setCreatedAt(OffsetDateTime.now());
         }
 
-        registration.setActive(true);
-        registration.setPaymentStatus(PaymentStatus.APPROVED);
+        registration.setActive(false);
+        registration.setPaymentStatus(PaymentStatus.PENDING);
         registration.setProofObjectKey(objectKey);
 
         try {
@@ -138,8 +141,8 @@ public class RegistrationService {
                         sdkEx
                 );
             }
-            existing.setActive(true);
-            existing.setPaymentStatus(PaymentStatus.APPROVED);
+            existing.setActive(false);
+            existing.setPaymentStatus(PaymentStatus.PENDING);
             existing.setProofObjectKey(retryKey);
             return toResponse(registrationRepository.save(existing));
         }
@@ -183,6 +186,70 @@ public class RegistrationService {
                         reg.getPaymentStatus()
                 ))
                 .orElse(new ConferencePaymentStatusResponse(false, null, null));
+    }
+
+    public List<PendingPaymentResponse> getPendingPayments() {
+        return registrationRepository.findByPaymentStatusAndProofObjectKeyIsNotNull(PaymentStatus.PENDING)
+                .stream()
+                .map(reg -> new PendingPaymentResponse(
+                        reg.getId(),
+                        reg.getConferenceId(),
+                        reg.getUserId(),
+                        reg.isActive(),
+                        reg.getPaymentStatus(),
+                        reg.getProofObjectKey()
+                ))
+                .toList();
+    }
+
+    public PaymentProofUrlResponse getPaymentProofUrl(String proofObjectKey) {
+        if (proofObjectKey == null || proofObjectKey.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "proofObjectKey requerido");
+        }
+
+        Registration registration = registrationRepository.findByProofObjectKey(proofObjectKey)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Comprobante no encontrado"));
+
+        if (registration.getPaymentStatus() != PaymentStatus.PENDING) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El pago no está pendiente");
+        }
+
+        try {
+            String url = paymentProofObjectStorage.getSignedObjectUrl(proofObjectKey, Duration.ofMinutes(10));
+            return new PaymentProofUrlResponse(url);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage(), ex);
+        } catch (SdkException ex) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "No se pudo generar la URL firmada", ex);
+        }
+    }
+
+    @Transactional
+    public RegistrationResponse approvePendingPayment(UUID registrationId) {
+        if (registrationId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "registrationId requerido");
+        }
+
+        Registration registration = registrationRepository.findById(registrationId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Registro no encontrado"));
+
+        // En tu modelo, “aprobado” significa tener estado APPROVED y estar activo.
+        if (registration.getPaymentStatus() == PaymentStatus.APPROVED && registration.isActive()) {
+            return toResponse(registration);
+        }
+
+        if (registration.getPaymentStatus() != PaymentStatus.PENDING) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El pago no está pendiente");
+        }
+
+        if (registration.getProofObjectKey() == null || registration.getProofObjectKey().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No existe comprobante para aprobar");
+        }
+
+        registration.setPaymentStatus(PaymentStatus.APPROVED);
+        registration.setActive(true);
+
+        return toResponse(registrationRepository.save(registration));
     }
 
     private ImageProofFormat validatePaymentProofImage(MultipartFile file, byte[] bytes) {

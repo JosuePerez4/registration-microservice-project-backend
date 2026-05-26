@@ -6,6 +6,7 @@ import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import service.registration.domain.model.PaymentStatus;
 import service.registration.domain.model.Registration;
 
 public interface RegistrationRepository extends JpaRepository<Registration, UUID> {
@@ -15,4 +16,8 @@ public interface RegistrationRepository extends JpaRepository<Registration, UUID
     List<Registration> findByUserId(UUID userId);
 
     Optional<Registration> findByConferenceIdAndUserId(UUID conferenceId, UUID userId);
+
+    List<Registration> findByPaymentStatusAndProofObjectKeyIsNotNull(PaymentStatus paymentStatus);
+
+    Optional<Registration> findByProofObjectKey(String proofObjectKey);
 }

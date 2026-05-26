@@ -20,6 +20,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import service.registration.application.dto.ConferencePaymentStatusResponse;
 import service.registration.application.dto.CreateRegistrationRequest;
+import service.registration.application.dto.PendingPaymentResponse;
+import service.registration.application.dto.PaymentProofUrlResponse;
 import service.registration.application.dto.RegistrationResponse;
 import service.registration.application.service.RegistrationService;
 
@@ -49,6 +51,21 @@ public class RegistrationController {
             @AuthenticationPrincipal Jwt jwt
     ) {
         return registrationService.submitSimulatedPayment(conferenceId, resolveUserId(jwt), file);
+    }
+
+    @GetMapping("/pending-payments")
+    public List<PendingPaymentResponse> getPendingPayments() {
+        return registrationService.getPendingPayments();
+    }
+
+    @GetMapping("/payment-proof")
+    public PaymentProofUrlResponse getPaymentProofUrl(@RequestParam String proofObjectKey) {
+        return registrationService.getPaymentProofUrl(proofObjectKey);
+    }
+
+    @PostMapping("/approve-payment")
+    public RegistrationResponse approvePayment(@RequestParam UUID registrationId) {
+        return registrationService.approvePendingPayment(registrationId);
     }
 
     @GetMapping("/payment-status")
