@@ -21,6 +21,7 @@ import service.registration.application.port.PaymentProofObjectStorage;
 import service.registration.domain.model.PaymentStatus;
 import service.registration.domain.model.Registration;
 import service.registration.domain.repository.RegistrationRepository;
+import service.registration.messaging.EnrollmentEventPublisher;
 import software.amazon.awssdk.core.exception.SdkException;
 
 @Service
@@ -30,15 +31,20 @@ public class RegistrationService {
             (byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A
     };
 
+    private static final String INSCRIPTION_TYPE_ASISTENTE = "ASISTENTE";
+
     private final RegistrationRepository registrationRepository;
     private final PaymentProofObjectStorage paymentProofObjectStorage;
+    private final EnrollmentEventPublisher enrollmentEventPublisher;
 
     public RegistrationService(
             RegistrationRepository registrationRepository,
-            PaymentProofObjectStorage paymentProofObjectStorage
+            PaymentProofObjectStorage paymentProofObjectStorage,
+            EnrollmentEventPublisher enrollmentEventPublisher
     ) {
         this.registrationRepository = registrationRepository;
         this.paymentProofObjectStorage = paymentProofObjectStorage;
+        this.enrollmentEventPublisher = enrollmentEventPublisher;
     }
 
     public RegistrationResponse create(CreateRegistrationRequest request, UUID userId) {
@@ -68,9 +74,10 @@ public class RegistrationService {
                 .findByConferenceIdAndUserId(conferenceId, userId)
                 .orElse(null);
 
-        if (registration != null
+        boolean alreadyApproved = registration != null
                 && registration.getPaymentStatus() == PaymentStatus.APPROVED
-                && registration.isActive()) {
+                && registration.isActive();
+        if (alreadyApproved) {
             return toResponse(registration);
         }
 
@@ -105,7 +112,9 @@ public class RegistrationService {
         registration.setProofObjectKey(objectKey);
 
         try {
-            return toResponse(registrationRepository.save(registration));
+            RegistrationResponse response = toResponse(registrationRepository.save(registration));
+            publishEnrollmentCreated(conferenceId, userId);
+            return response;
         } catch (DataIntegrityViolationException ex) {
             if (!isNew) {
                 throw new ResponseStatusException(
@@ -141,8 +150,14 @@ public class RegistrationService {
             existing.setActive(true);
             existing.setPaymentStatus(PaymentStatus.APPROVED);
             existing.setProofObjectKey(retryKey);
-            return toResponse(registrationRepository.save(existing));
+            RegistrationResponse response = toResponse(registrationRepository.save(existing));
+            publishEnrollmentCreated(conferenceId, userId);
+            return response;
         }
+    }
+
+    private void publishEnrollmentCreated(UUID conferenceId, UUID userId) {
+        enrollmentEventPublisher.publishCreated(conferenceId, userId, INSCRIPTION_TYPE_ASISTENTE);
     }
 
     private Registration newPendingRegistration(UUID conferenceId, UUID userId) {
