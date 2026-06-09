@@ -20,8 +20,11 @@ import org.springframework.web.multipart.MultipartFile;
 
 import service.registration.application.dto.ConferencePaymentStatusResponse;
 import service.registration.application.dto.CreateRegistrationRequest;
+import service.registration.application.dto.PendingPaymentResponse;
+import service.registration.application.dto.PaymentProofUrlResponse;
 import service.registration.application.dto.RegistrationResponse;
 import service.registration.application.service.RegistrationService;
+import service.registration.domain.model.PaymentStatus;
 
 @RestController
 @RequestMapping("/registrations")
@@ -51,6 +54,21 @@ public class RegistrationController {
         return registrationService.submitSimulatedPayment(conferenceId, resolveUserId(jwt), file);
     }
 
+    @GetMapping("/pending-payments")
+    public List<PendingPaymentResponse> getPendingPayments() {
+        return registrationService.getPendingPayments();
+    }
+
+    @GetMapping("/payment-proof")
+    public PaymentProofUrlResponse getPaymentProofUrl(@RequestParam String proofObjectKey) {
+        return registrationService.getPaymentProofUrl(proofObjectKey);
+    }
+
+    @PostMapping("/approve-payment")
+    public RegistrationResponse approvePayment(@RequestParam UUID registrationId) {
+        return registrationService.approvePendingPayment(registrationId);
+    }
+
     @GetMapping("/payment-status")
     public ConferencePaymentStatusResponse getPaymentStatus(
             @RequestParam UUID conferenceId,
@@ -65,7 +83,13 @@ public class RegistrationController {
     }
 
     @GetMapping("/register-list")
-    public List<RegistrationResponse> getByConference(@RequestParam UUID conferenceId) {
+    public List<RegistrationResponse> getByConference(
+            @RequestParam UUID conferenceId,
+            @RequestParam(required = false) PaymentStatus status
+    ) {
+        if (status != null) {
+            return registrationService.getByConferenceIdAndStatus(conferenceId, status);
+        }
         return registrationService.getByConferenceId(conferenceId);
     }
 
