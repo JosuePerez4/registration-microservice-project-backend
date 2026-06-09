@@ -13,6 +13,8 @@ public interface RegistrationRepository extends JpaRepository<Registration, UUID
 
     List<Registration> findByConferenceId(UUID conferenceId);
 
+    List<Registration> findByConferenceIdAndPaymentStatus(UUID conferenceId, PaymentStatus paymentStatus);
+
     List<Registration> findByUserId(UUID userId);
 
     Optional<Registration> findByConferenceIdAndUserId(UUID conferenceId, UUID userId);

@@ -171,6 +171,13 @@ public class RegistrationService {
                 .toList();
     }
 
+    public List<RegistrationResponse> getByConferenceIdAndStatus(UUID conferenceId, PaymentStatus status) {
+        return registrationRepository.findByConferenceIdAndPaymentStatus(conferenceId, status)
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
     public List<RegistrationResponse> getByUserId(UUID userId) {
         return registrationRepository.findByUserId(userId)
                 .stream()

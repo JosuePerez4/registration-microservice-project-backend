@@ -24,6 +24,7 @@ import service.registration.application.dto.PendingPaymentResponse;
 import service.registration.application.dto.PaymentProofUrlResponse;
 import service.registration.application.dto.RegistrationResponse;
 import service.registration.application.service.RegistrationService;
+import service.registration.domain.model.PaymentStatus;
 
 @RestController
 @RequestMapping("/registrations")
@@ -82,7 +83,13 @@ public class RegistrationController {
     }
 
     @GetMapping("/register-list")
-    public List<RegistrationResponse> getByConference(@RequestParam UUID conferenceId) {
+    public List<RegistrationResponse> getByConference(
+            @RequestParam UUID conferenceId,
+            @RequestParam(required = false) PaymentStatus status
+    ) {
+        if (status != null) {
+            return registrationService.getByConferenceIdAndStatus(conferenceId, status);
+        }
         return registrationService.getByConferenceId(conferenceId);
     }
 
