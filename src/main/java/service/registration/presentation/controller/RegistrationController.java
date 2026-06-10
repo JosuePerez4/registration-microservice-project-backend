@@ -69,6 +69,12 @@ public class RegistrationController {
         return registrationService.approvePendingPayment(registrationId);
     }
 
+    @PostMapping("/reject-payment")
+    public RegistrationResponse rejectPayment(@RequestParam UUID registrationId) {
+        return registrationService.rejectPendingPayment(registrationId);
+    }
+
+
     @GetMapping("/payment-status")
     public ConferencePaymentStatusResponse getPaymentStatus(
             @RequestParam UUID conferenceId,

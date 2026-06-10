@@ -259,6 +259,34 @@ public class RegistrationService {
         return toResponse(registrationRepository.save(registration));
     }
 
+    @Transactional
+    public RegistrationResponse rejectPendingPayment(UUID registrationId) {
+        if (registrationId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "registrationId requerido");
+        }
+
+        Registration registration = registrationRepository.findById(registrationId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Registro no encontrado"));
+
+        if (registration.getPaymentStatus() == PaymentStatus.REJECTED && !registration.isActive()) {
+            return toResponse(registration);
+        }
+
+        if (registration.getPaymentStatus() != PaymentStatus.PENDING) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El pago no está pendiente");
+        }
+
+        if (registration.getProofObjectKey() == null || registration.getProofObjectKey().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No existe comprobante para rechazar");
+        }
+
+        registration.setPaymentStatus(PaymentStatus.REJECTED);
+        registration.setActive(false);
+
+        return toResponse(registrationRepository.save(registration));
+    }
+
+
     private ImageProofFormat validatePaymentProofImage(MultipartFile file, byte[] bytes) {
         if (file == null || file.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El archivo es obligatorio");
