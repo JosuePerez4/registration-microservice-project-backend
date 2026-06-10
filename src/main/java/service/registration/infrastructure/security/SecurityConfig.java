@@ -39,6 +39,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/registrations/register").hasAnyRole("AUTHOR", "ASISTANT")
                         .requestMatchers(HttpMethod.POST, "/registrations/pay").hasRole("ASISTANT")
                         .requestMatchers(HttpMethod.POST, "/registrations/approve-payment").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/registrations/reject-payment").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/registrations/pending-payments").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/registrations/payment-proof").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/registrations/register/**", "/registrations/register-list")
